@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CardioSense ICU Monitor</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700;900&display=swap');
+
+  :root {
+    --cyan: #00f5ff;
+    --green: #00ff88;
+    --amber: #ffb800;
+    --red: #ff2d55;
+    --bg: #020c14;
+    --panel: rgba(0, 20, 35, 0.85);
+    --glass: rgba(0, 245, 255, 0.04);
+    --border: rgba(0, 245, 255, 0.15);
+    --glow-c: 0 0 20px rgba(0,245,255,0.4), 0 0 60px rgba(0,245,255,0.15);
+    --glow-g: 0 0 20px rgba(0,255,136,0.4), 0 0 60px rgba(0,255,136,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    font-family: 'Exo 2', sans-serif;
+    color: var(--cyan);
+    min-height: 100vh;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0,245,255,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 30% at 80% 80%, rgba(0,255,136,0.04) 0%, transparent 50%);
+  }
+
+  /* HEADER */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 28px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0,10,20,0.9);
+    backdrop-filter: blur(20px);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .logo-icon {
+    width: 36px; height: 36px;
+    border: 2px solid var(--cyan);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: var(--glow-c);
+    font-size: 18px;
+  }
+  .logo-text { font-size: 20px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+  .logo-sub { font-size: 10px; color: rgba(0,245,255,0.5); letter-spacing: 3px; margin-top: 2px; }
+  .header-center {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px; color: rgba(0,245,255,0.6);
+    text-align: center;
+  }
+  .live-badge {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px;
+    border: 1px solid rgba(0,255,136,0.3);
+    border-radius: 20px;
+    background: rgba(0,255,136,0.05);
+    font-size: 11px; font-weight: 600; letter-spacing: 2px; color: var(--green);
+  }
+  .live-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: blink 1.2s ease-in-out infinite;
+  }
+
+  /* MAIN LAYOUT */
+  .dashboard {
+    padding: 20px 24px;
+    display: grid;
+    grid-template-rows: auto auto auto;
+    gap: 18px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* STATUS BAR */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+  }
+  .patient-info { display: flex; gap: 28px; }
+  .info-item { font-family: 'Share Tech Mono', monospace; font-size: 12px; }
+  .info-label { color: rgba(0,245,255,0.4); font-size: 10px; letter-spacing: 1px; margin-bottom: 2px; }
+  .info-val { color: var(--cyan); font-size: 13px; }
+
+  .status-indicator {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-weight: 700; font-size: 14px; letter-spacing: 2px;
+    transition: all 0.5s ease;
+    border: 1px solid;
+  }
+  .status-indicator.normal {
+    background: rgba(0,255,136,0.08);
+    border-color: rgba(0,255,136,0.4);
+    color: var(--green);
+    box-shadow: 0 0 15px rgba(0,255,136,0.2);
+  }
+  .status-indicator.warning {
+    background: rgba(255,184,0,0.08);
+    border-color: rgba(255,184,0,0.4);
+    color: var(--amber);
+    box-shadow: 0 0 15px rgba(255,184,0,0.2);
+  }
+  .status-indicator.critical {
+    background: rgba(255,45,85,0.08);
+    border-color: rgba(255,45,85,0.4);
+    color: var(--red);
+    box-shadow: 0 0 15px rgba(255,45,85,0.2);
+    animation: criticalPulse 0.8s ease-in-out infinite;
+  }
+
+  /* ECG SECTION */
+  .ecg-section {
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 18px;
+  }
+
+  .ecg-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    position: relative;
+    overflow: hidden;
+  }
+  .ecg-panel::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(0,245,255,0.02) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .ecg-label {
+    font-size: 10px; letter-spacing: 3px; color: rgba(0,245,255,0.4);
+    font-weight: 600; text-transform: uppercase; margin-bottom: 10px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .ecg-channel { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: rgba(0,245,255,0.5); }
+
+  canvas#ecgCanvas {
+    width: 100%;
+    border-radius: 8px;
+    display: block;
+  }
+
+  /* BPM PANEL */
+  .bpm-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 16px;
+    backdrop-filter: blur(20px);
+    display: flex; flex-direction: column;
+    align-items: center; gap: 16px;
+    position: relative; overflow: hidden;
+  }
+  .bpm-panel::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 30%, rgba(0,245,255,0.05) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .heart-container {
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    width: 100px; height: 100px;
+  }
+  .heart-ring {
+    position: absolute;
+    border: 2px solid rgba(0,245,255,0.15);
+    border-radius: 50%;
+    animation: ringExpand 1s ease-out infinite;
+  }
+  .heart-ring:nth-child(1) { width: 90px; height: 90px; }
+  .heart-ring:nth-child(2) { width: 70px; height: 70px; animation-delay: 0.2s; }
+
+  .heart-svg {
+    width: 52px; height: 52px;
+    position: relative; z-index: 1;
+    filter: drop-shadow(0 0 12px var(--cyan)) drop-shadow(0 0 25px rgba(0,245,255,0.4));
+    transition: transform 0.05s ease;
+  }
+
+  .bpm-display {
+    text-align: center;
+    position: relative; z-index: 1;
+  }
+  .bpm-number {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 64px; font-weight: 400;
+    color: var(--cyan);
+    text-shadow: var(--glow-c);
+    line-height: 1;
+    transition: color 0.5s ease, text-shadow 0.5s ease;
+  }
+  .bpm-unit {
+    font-size: 13px; letter-spacing: 3px; color: rgba(0,245,255,0.5);
+    font-weight: 600; text-transform: uppercase; margin-top: 4px;
+  }
+  .bpm-range {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px; color: rgba(0,245,255,0.35); margin-top: 6px;
+  }
+
+  /* Sparkline mini */
+  .bpm-trend {
+    width: 100%;
+    height: 36px;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+    position: relative; z-index: 1;
+  }
+  canvas#trendCanvas { width: 100%; height: 26px; display: block; }
+
+  /* VITALS GRID */
+  .vitals-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+
+  .vital-card {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 18px;
+    backdrop-filter: blur(15px);
+    transition: all 0.3s ease;
+    position: relative; overflow: hidden;
+    cursor: default;
+  }
+  .vital-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--card-color, var(--cyan)), transparent);
+  }
+  .vital-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    border-color: rgba(0,245,255,0.3);
+  }
+
+  .vital-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .vital-icon { font-size: 20px; line-height: 1; }
+  .vital-name { font-size: 10px; letter-spacing: 2px; color: rgba(0,245,255,0.5); font-weight: 600; text-transform: uppercase; }
+  .vital-status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: blink 2s ease-in-out infinite;
+  }
+
+  .vital-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 32px; color: var(--card-color, var(--cyan));
+    text-shadow: 0 0 15px var(--card-color, var(--cyan));
+    line-height: 1; transition: all 0.4s ease;
+  }
+  .vital-unit { font-size: 12px; color: rgba(0,245,255,0.4); font-weight: 400; margin-left: 4px; }
+  .vital-sub { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: rgba(0,245,255,0.3); margin-top: 6px; }
+
+  .vital-bar {
+    margin-top: 10px; height: 3px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 2px; overflow: hidden;
+  }
+  .vital-bar-fill {
+    height: 100%; border-radius: 2px;
+    background: var(--card-color, var(--cyan));
+    box-shadow: 0 0 6px var(--card-color, var(--cyan));
+    transition: width 1s ease;
+  }
+
+  /* CONTROLS */
+  .controls-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 14px;
+  }
+
+  .controls-left { display: flex; gap: 12px; align-items: center; }
+
+  .btn {
+    padding: 10px 24px;
+    border: 1px solid;
+    border-radius: 8px;
+    font-family: 'Exo 2', sans-serif;
+    font-size: 13px; font-weight: 700; letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative; overflow: hidden;
+    backdrop-filter: blur(10px);
+  }
+  .btn::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: currentColor;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .btn:hover::after { opacity: 0.1; }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-start {
+    background: rgba(0,255,136,0.08);
+    border-color: rgba(0,255,136,0.5);
+    color: var(--green);
+    box-shadow: 0 0 15px rgba(0,255,136,0.15);
+  }
+  .btn-start:hover { box-shadow: 0 0 25px rgba(0,255,136,0.35); border-color: var(--green); }
+
+  .btn-stop {
+    background: rgba(255,45,85,0.08);
+    border-color: rgba(255,45,85,0.5);
+    color: var(--red);
+    box-shadow: 0 0 15px rgba(255,45,85,0.15);
+  }
+  .btn-stop:hover { box-shadow: 0 0 25px rgba(255,45,85,0.35); border-color: var(--red); }
+
+  .btn-reset {
+    background: rgba(0,245,255,0.05);
+    border-color: rgba(0,245,255,0.3);
+    color: rgba(0,245,255,0.7);
+  }
+  .btn-reset:hover { border-color: var(--cyan); color: var(--cyan); box-shadow: 0 0 15px rgba(0,245,255,0.2); }
+
+  .bpm-slider-wrap {
+    display: flex; align-items: center; gap: 14px;
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 16px;
+  }
+  .slider-label { font-size: 11px; letter-spacing: 2px; color: rgba(0,245,255,0.5); white-space: nowrap; }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 160px; height: 4px;
+    background: rgba(0,245,255,0.15);
+    border-radius: 2px; outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 8px var(--cyan);
+    cursor: pointer;
+  }
+  .slider-val {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px; color: var(--cyan); min-width: 40px; text-align: right;
+  }
+
+  /* ALERT BANNER */
+  .alert-banner {
+    display: none;
+    padding: 12px 20px;
+    border-radius: 10px;
+    border: 1px solid;
+    font-size: 13px; font-weight: 600; letter-spacing: 1px;
+    animation: slideIn 0.3s ease;
+    align-items: center; gap: 10px;
+  }
+  .alert-banner.show { display: flex; }
+  .alert-warning {
+    background: rgba(255,184,0,0.08);
+    border-color: rgba(255,184,0,0.4);
+    color: var(--amber);
+  }
+  .alert-critical {
+    background: rgba(255,45,85,0.08);
+    border-color: rgba(255,45,85,0.4);
+    color: var(--red);
+    animation: criticalPulse 0.8s ease-in-out infinite;
+  }
+  .alert-icon { font-size: 16px; }
+
+  /* DISCLAIMER */
+  .disclaimer {
+    text-align: center;
+    font-size: 10px;
+    color: rgba(0,245,255,0.2);
+    letter-spacing: 1px;
+    padding: 8px;
+    border-top: 1px solid rgba(0,245,255,0.05);
+  }
+
+  /* GRID OVERLAY on ECG */
+  .ecg-grid-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.06;
+    background-image:
+      linear-gradient(rgba(0,245,255,1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,245,255,1) 1px, transparent 1px);
+    background-size: 20px 20px;
+    border-radius: 8px;
+  }
+
+  /* ANIMATIONS */
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  @keyframes ringExpand {
+    0% { transform: scale(0.8); opacity: 0.6; }
+    100% { transform: scale(1.4); opacity: 0; }
+  }
+  @keyframes heartBeat {
+    0%,100% { transform: scale(1); }
+    15% { transform: scale(1.22); }
+    30% { transform: scale(1); }
+    45% { transform: scale(1.1); }
+    60% { transform: scale(1); }
+  }
+  @keyframes criticalPulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+  @keyframes slideIn {
+    from { transform: translateY(-8px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes numberFlip {
+    0% { transform: translateY(-6px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+
+  .bpm-number.update { animation: numberFlip 0.25s ease; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .ecg-section { grid-template-columns: 1fr; }
+    .vitals-grid { grid-template-columns: repeat(2,1fr); }
+    .bpm-panel { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+    .controls-row { flex-direction: column; align-items: stretch; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <div class="logo-icon">❤</div>
+    <div>
+      <div class="logo-text">CardioSense</div>
+      <div class="logo-sub">ICU Monitor v4.2</div>
+    </div>
+  </div>
+  <div class="header-center">
+    <div id="clockDisplay" style="font-size:15px; color: var(--cyan);">--:--:--</div>
+    <div style="margin-top:3px;">PATIENT MONITORING SYSTEM</div>
+  </div>
+  <div class="live-badge">
+    <div class="live-dot" id="liveDot"></div>
+    <span id="liveLabel">MONITORING</span>
+  </div>
+</header>
+
+<div class="dashboard">
+
+  <!-- STATUS BAR -->
+  <div class="status-bar">
+    <div class="patient-info">
+      <div class="info-item">
+        <div class="info-label">PATIENT ID</div>
+        <div class="info-val">PT-2847-CS</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">WARD</div>
+        <div class="info-val">ICU-C3</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">LEAD</div>
+        <div class="info-val">II — STANDARD</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">GAIN</div>
+        <div class="info-val">10 mm/mV</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">FILTER</div>
+        <div class="info-val">40 Hz / 0.5 Hz</div>
+      </div>
+    </div>
+    <div class="status-indicator normal" id="statusIndicator">
+      <span id="statusIcon">✦</span>
+      <span id="statusText">NORMAL SINUS RHYTHM</span>
+    </div>
+  </div>
+
+  <!-- ALERT BANNER -->
+  <div class="alert-banner" id="alertBanner">
+    <span class="alert-icon" id="alertIcon">⚠</span>
+    <span id="alertText">Alert</span>
+  </div>
+
+  <!-- ECG + BPM -->
+  <div class="ecg-section">
+    <div class="ecg-panel">
+      <div class="ecg-label">
+        <span>ECG WAVEFORM — LEAD II</span>
+        <span class="ecg-channel">CHANNEL 1 / SWEEP: <span id="sweepSpeed">25</span> mm/s</span>
+      </div>
+      <div style="position:relative;">
+        <div class="ecg-grid-overlay"></div>
+        <canvas id="ecgCanvas" height="160"></canvas>
+      </div>
+    </div>
+
+    <div class="bpm-panel">
+      <div style="font-size:10px; letter-spacing:3px; color:rgba(0,245,255,0.4); font-weight:600; text-transform:uppercase; align-self:flex-start; position:relative; z-index:1;">Heart Rate</div>
+
+      <div class="heart-container">
+        <div class="heart-ring"></div>
+        <div class="heart-ring"></div>
+        <svg class="heart-svg" id="heartSvg" viewBox="0 0 100 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M50 85 C50 85 5 55 5 30 C5 15 15 5 28 5 C37 5 45 11 50 18 C55 11 63 5 72 5 C85 5 95 15 95 30 C95 55 50 85 50 85Z"
+                fill="url(#heartGrad)" stroke="rgba(0,245,255,0.6)" stroke-width="2"/>
+          <defs>
+            <linearGradient id="heartGrad" x1="50" y1="0" x2="50" y2="90" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="rgba(0,245,255,0.9)"/>
+              <stop offset="100%" stop-color="rgba(0,150,200,0.6)"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+
+      <div class="bpm-display">
+        <div class="bpm-number" id="bpmDisplay">72</div>
+        <div class="bpm-unit">BPM</div>
+        <div class="bpm-range" id="bpmRange">NORMAL  60-100</div>
+      </div>
+
+      <div style="width:100%; position:relative; z-index:1;">
+        <div style="font-size:9px; letter-spacing:2px; color:rgba(0,245,255,0.3); margin-bottom:4px;">RATE TREND</div>
+        <canvas id="trendCanvas" height="26"></canvas>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%; position:relative; z-index:1;">
+        <div style="background:rgba(0,245,255,0.04); border:1px solid rgba(0,245,255,0.1); border-radius:8px; padding:8px; text-align:center;">
+          <div style="font-size:9px; letter-spacing:1px; color:rgba(0,245,255,0.4);">MIN</div>
+          <div style="font-family:'Share Tech Mono',monospace; font-size:18px; color:rgba(0,245,255,0.7);" id="minBpm">--</div>
+        </div>
+        <div style="background:rgba(0,245,255,0.04); border:1px solid rgba(0,245,255,0.1); border-radius:8px; padding:8px; text-align:center;">
+          <div style="font-size:9px; letter-spacing:1px; color:rgba(0,245,255,0.4);">MAX</div>
+          <div style="font-family:'Share Tech Mono',monospace; font-size:18px; color:rgba(0,245,255,0.7);" id="maxBpm">--</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VITALS GRID -->
+  <div class="vitals-grid">
+    <!-- SpO2 -->
+    <div class="vital-card" style="--card-color: #00f5ff;">
+      <div class="vital-header">
+        <div>
+          <div class="vital-name">Blood Oxygen</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:18px;">🫧</span>
+          <div class="vital-status-dot"></div>
+        </div>
+      </div>
+      <div>
+        <span class="vital-value" id="spo2Val">98</span><span class="vital-unit">%</span>
+      </div>
+      <div class="vital-sub" id="spo2Sub">SpO₂ — NORMAL</div>
+      <div class="vital-bar"><div class="vital-bar-fill" id="spo2Bar" style="width:98%"></div></div>
+    </div>
+
+    <!-- Temp -->
+    <div class="vital-card" style="--card-color: #ff9500;">
+      <div class="vital-header">
+        <div>
+          <div class="vital-name" style="color:rgba(255,149,0,0.6);">Temperature</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:18px;">🌡</span>
+          <div class="vital-status-dot" style="background:#ff9500;box-shadow:0 0 6px #ff9500;"></div>
+        </div>
+      </div>
+      <div>
+        <span class="vital-value" id="tempVal" style="color:#ff9500;text-shadow:0 0 15px #ff9500;">36.7</span><span class="vital-unit" style="color:rgba(255,149,0,0.5);">°C</span>
+      </div>
+      <div class="vital-sub" id="tempSub">CORE BODY TEMP</div>
+      <div class="vital-bar" style="background:rgba(255,149,0,0.1)"><div class="vital-bar-fill" id="tempBar" style="width:60%; background:#ff9500; box-shadow:0 0 6px #ff9500;"></div></div>
+    </div>
+
+    <!-- BP -->
+    <div class="vital-card" style="--card-color: #bf5af2;">
+      <div class="vital-header">
+        <div>
+          <div class="vital-name" style="color:rgba(191,90,242,0.6);">Blood Pressure</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:18px;">🩺</span>
+          <div class="vital-status-dot" style="background:#bf5af2;box-shadow:0 0 6px #bf5af2;"></div>
+        </div>
+      </div>
+      <div>
+        <span class="vital-value" id="bpVal" style="color:#bf5af2;text-shadow:0 0 15px #bf5af2; font-size:26px;">120/80</span><span class="vital-unit" style="color:rgba(191,90,242,0.5);">mmHg</span>
+      </div>
+      <div class="vital-sub" id="bpSub">SYSTOLIC / DIASTOLIC</div>
+      <div class="vital-bar" style="background:rgba(191,90,242,0.1)"><div class="vital-bar-fill" id="bpBar" style="width:65%; background:#bf5af2; box-shadow:0 0 6px #bf5af2;"></div></div>
+    </div>
+
+    <!-- Resp Rate -->
+    <div class="vital-card" style="--card-color: #30d158;">
+      <div class="vital-header">
+        <div>
+          <div class="vital-name" style="color:rgba(48,209,88,0.6);">Resp. Rate</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:18px;">🫁</span>
+          <div class="vital-status-dot" style="background:#30d158;box-shadow:0 0 6px #30d158;"></div>
+        </div>
+      </div>
+      <div>
+        <span class="vital-value" id="respVal" style="color:#30d158;text-shadow:0 0 15px #30d158;">16</span><span class="vital-unit" style="color:rgba(48,209,88,0.5);">/min</span>
+      </div>
+      <div class="vital-sub" id="respSub">BREATHS — NORMAL</div>
+      <div class="vital-bar" style="background:rgba(48,209,88,0.1)"><div class="vital-bar-fill" id="respBar" style="width:55%; background:#30d158; box-shadow:0 0 6px #30d158;"></div></div>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls-row">
+    <div class="controls-left">
+      <button class="btn btn-start" id="btnStart" onclick="startMonitor()">▶ START</button>
+      <button class="btn btn-stop" id="btnStop" onclick="stopMonitor()">■ STOP</button>
+      <button class="btn btn-reset" onclick="resetMonitor()">↺ RESET</button>
+    </div>
+    <div class="bpm-slider-wrap">
+      <span class="slider-label">SIM BPM</span>
+      <input type="range" id="bpmSlider" min="30" max="180" value="72" oninput="onSliderChange(this.value)">
+      <span class="slider-val" id="sliderVal">72</span>
+    </div>
+  </div>
+
+  <!-- DISCLAIMER -->
+  <div class="disclaimer">
+    ⚕ This is an educational heartbeat monitoring simulation and not a real medical device. Data shown is simulated and should not be used for clinical decisions. ⚕
+  </div>
+
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────
+let running = false;
+let targetBpm = 72;
+let currentBpm = 72;
+let bpmHistory = [];
+let minBpm = Infinity, maxBpm = -Infinity;
+let heartAnimId = null;
+let ecgAnimId = null;
+let vitalsIntervalId = null;
+let clockIntervalId = null;
+
+// ECG drawing
+const ecgCanvas = document.getElementById('ecgCanvas');
+const ecgCtx = ecgCanvas.getContext('2d');
+const trendCanvas = document.getElementById('trendCanvas');
+const trendCtx = trendCanvas.getContext('2d');
+
+// ECG waveform buffer
+let waveBuffer = [];
+let wavePos = 0;
+let lastTime = 0;
+let beatPhase = 0; // 0..1 within one beat cycle
+
+// ─── CLOCK ───────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clockDisplay').textContent =
+    now.toLocaleTimeString('en-US', {hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
+}
+updateClock();
+clockIntervalId = setInterval(updateClock, 1000);
+
+// ─── ECG WAVEFORM GENERATOR ──────────────────────────────────
+function ecgSample(phase) {
+  // P wave (0.08–0.18)
+  let v = 0;
+  const p = phase;
+
+  // P wave
+  if (p > 0.08 && p < 0.18) {
+    const t = (p - 0.08) / 0.10;
+    v += 0.12 * Math.sin(Math.PI * t);
+  }
+  // PR segment flat
+  // Q wave
+  if (p > 0.22 && p < 0.26) {
+    const t = (p - 0.22) / 0.04;
+    v -= 0.08 * Math.sin(Math.PI * t);
+  }
+  // R spike (sharp tall)
+  if (p > 0.26 && p < 0.36) {
+    const t = (p - 0.26) / 0.10;
+    // sharp gaussian-like spike
+    const center = 0.5;
+    const dist = Math.abs(t - center);
+    v += 1.0 * Math.exp(-dist * dist * 35);
+  }
+  // S wave
+  if (p > 0.36 && p < 0.42) {
+    const t = (p - 0.36) / 0.06;
+    v -= 0.18 * Math.sin(Math.PI * t);
+  }
+  // ST segment
+  if (p > 0.42 && p < 0.50) v += 0.02;
+  // T wave
+  if (p > 0.50 && p < 0.70) {
+    const t = (p - 0.50) / 0.20;
+    v += 0.25 * Math.sin(Math.PI * t);
+  }
+  return v;
+}
+
+// ─── RESIZE CANVAS ───────────────────────────────────────────
+function resizeCanvases() {
+  const rect = ecgCanvas.parentElement.getBoundingClientRect();
+  ecgCanvas.width = rect.width - 0;
+  ecgCanvas.height = 160;
+  trendCanvas.width = trendCanvas.parentElement.offsetWidth || 220;
+  trendCanvas.height = 26;
+  waveBuffer = new Array(ecgCanvas.width).fill(0.5);
+}
+resizeCanvases();
+window.addEventListener('resize', resizeCanvases);
+
+// ─── DRAW ECG ─────────────────────────────────────────────────
+function getWaveColor(bpm) {
+  if (bpm < 50 || bpm > 130) return '#ff2d55';
+  if (bpm < 60 || bpm > 100) return '#ffb800';
+  return '#00f5ff';
+}
+
+function drawECG(ts) {
+  if (!running) { ecgAnimId = requestAnimationFrame(drawECG); return; }
+
+  const dt = ts - lastTime;
+  lastTime = ts;
+
+  // advance beat phase based on BPM
+  const beatsPerMs = currentBpm / 60000;
+  beatPhase += beatsPerMs * dt;
+  if (beatPhase >= 1) {
+    beatPhase -= Math.floor(beatPhase);
+    triggerHeartBeat();
+  }
+
+  // push sample
+  const sample = ecgSample(beatPhase);
+  waveBuffer.push(sample);
+  if (waveBuffer.length > ecgCanvas.width) waveBuffer.shift();
+
+  // clear
+  const W = ecgCanvas.width, H = ecgCanvas.height;
+  ecgCtx.clearRect(0, 0, W, H);
+
+  // draw waveform
+  const color = getWaveColor(currentBpm);
+  const mid = H * 0.5;
+  const amp = H * 0.35;
+
+  // glow layers
+  for (let pass = 0; pass < 3; pass++) {
+    ecgCtx.beginPath();
+    ecgCtx.strokeStyle = color;
+    ecgCtx.lineWidth = [4, 2, 1][pass];
+    ecgCtx.globalAlpha = [0.15, 0.4, 1][pass];
+    ecgCtx.shadowBlur = [0, 8, 20][pass];
+    ecgCtx.shadowColor = color;
+
+    for (let x = 0; x < waveBuffer.length; x++) {
+      const y = mid - waveBuffer[x] * amp;
+      if (x === 0) ecgCtx.moveTo(x, y);
+      else ecgCtx.lineTo(x, y);
+    }
+    ecgCtx.stroke();
+  }
+  ecgCtx.globalAlpha = 1;
+  ecgCtx.shadowBlur = 0;
+
+  // scan line (bright leading edge)
+  const scanX = waveBuffer.length - 1;
+  const grad = ecgCtx.createLinearGradient(scanX - 30, 0, scanX, 0);
+  grad.addColorStop(0, 'transparent');
+  grad.addColorStop(1, color + 'aa');
+  ecgCtx.fillStyle = grad;
+  ecgCtx.fillRect(scanX - 30, 0, 30, H);
+
+  ecgAnimId = requestAnimationFrame(drawECG);
+}
+
+// ─── HEART BEAT ANIMATION ────────────────────────────────────
+function triggerHeartBeat() {
+  const svg = document.getElementById('heartSvg');
+  svg.style.animation = 'none';
+  svg.offsetHeight; // reflow
+  svg.style.animation = `heartBeat ${60000 / currentBpm}ms ease-out`;
+}
+
+// ─── VITALS SIMULATION ───────────────────────────────────────
+function updateVitals() {
+  if (!running) return;
+
+  // BPM drift towards target
+  const diff = targetBpm - currentBpm;
+  currentBpm += diff * 0.05 + (Math.random() - 0.5) * 0.8;
+  currentBpm = Math.max(30, Math.min(180, currentBpm));
+  const bpmRounded = Math.round(currentBpm);
+
+  // Track history for trend
+  bpmHistory.push(bpmRounded);
+  if (bpmHistory.length > 60) bpmHistory.shift();
+  if (bpmRounded < minBpm) { minBpm = bpmRounded; document.getElementById('minBpm').textContent = bpmRounded; }
+  if (bpmRounded > maxBpm) { maxBpm = bpmRounded; document.getElementById('maxBpm').textContent = bpmRounded; }
+
+  // Update BPM display
+  const bpmEl = document.getElementById('bpmDisplay');
+  bpmEl.textContent = bpmRounded;
+  bpmEl.classList.remove('update');
+  void bpmEl.offsetWidth;
+  bpmEl.classList.add('update');
+
+  // Color by status
+  const waveColor = getWaveColor(currentBpm);
+  bpmEl.style.color = waveColor;
+  bpmEl.style.textShadow = `0 0 15px ${waveColor}, 0 0 40px ${waveColor}66`;
+
+  // Status detection
+  updateStatus(bpmRounded);
+
+  // SpO2
+  let spo2 = 98;
+  if (bpmRounded > 130) spo2 = Math.round(95 + Math.random() * 2);
+  else if (bpmRounded < 50) spo2 = Math.round(93 + Math.random() * 3);
+  else spo2 = Math.round(97 + Math.random() * 2);
+  document.getElementById('spo2Val').textContent = spo2;
+  document.getElementById('spo2Bar').style.width = spo2 + '%';
+  document.getElementById('spo2Sub').textContent = spo2 >= 95 ? 'SpO₂ — NORMAL' : 'SpO₂ — LOW ⚠';
+
+  // Temperature
+  let temp = 36.7 + (bpmRounded > 110 ? 0.8 : 0) + (Math.random() - 0.5) * 0.1;
+  document.getElementById('tempVal').textContent = temp.toFixed(1);
+  document.getElementById('tempSub').textContent = temp > 37.5 ? 'ELEVATED TEMP ⚠' : 'CORE BODY TEMP';
+  document.getElementById('tempBar').style.width = ((temp - 35) / 5 * 100) + '%';
+
+  // BP
+  let sys = 120, dia = 80;
+  if (bpmRounded > 120) { sys = 135 + Math.round(Math.random()*10); dia = 88 + Math.round(Math.random()*5); }
+  else if (bpmRounded < 50) { sys = 90 + Math.round(Math.random()*8); dia = 60 + Math.round(Math.random()*5); }
+  else { sys = 118 + Math.round(Math.random()*6); dia = 78 + Math.round(Math.random()*4); }
+  document.getElementById('bpVal').textContent = sys + '/' + dia;
+  document.getElementById('bpBar').style.width = Math.min(100, (sys/200*100)) + '%';
+  document.getElementById('bpSub').textContent = sys > 130 ? 'ELEVATED ⚠' : 'SYSTOLIC / DIASTOLIC';
+
+  // Resp
+  let resp = Math.round(14 + (bpmRounded - 60) * 0.06 + Math.random() * 2);
+  resp = Math.max(10, Math.min(30, resp));
+  document.getElementById('respVal').textContent = resp;
+  document.getElementById('respBar').style.width = (resp / 30 * 100) + '%';
+  document.getElementById('respSub').textContent = resp > 20 ? 'ELEVATED ⚠' : 'BREATHS — NORMAL';
+
+  // BPM range label
+  let rangeText = '';
+  if (bpmRounded < 50) rangeText = 'SEVERE BRADY  <50';
+  else if (bpmRounded < 60) rangeText = 'BRADYCARDIA  60-100';
+  else if (bpmRounded <= 100) rangeText = 'NORMAL  60-100';
+  else if (bpmRounded <= 130) rangeText = 'TACHYCARDIA  >100';
+  else rangeText = 'SEVERE TACHY  >130';
+  document.getElementById('bpmRange').textContent = rangeText;
+
+  // Sweep speed label
+  const sweep = Math.round(25 + (currentBpm - 72) * 0.3);
+  document.getElementById('sweepSpeed').textContent = Math.max(15, Math.min(50, sweep));
+
+  // Draw trend
+  drawTrend();
+}
+
+function updateStatus(bpm) {
+  const ind = document.getElementById('statusIndicator');
+  const txt = document.getElementById('statusText');
+  const icon = document.getElementById('statusIcon');
+  const alert = document.getElementById('alertBanner');
+
+  ind.className = 'status-indicator';
+  alert.className = 'alert-banner';
+
+  if (bpm < 40 || bpm > 150) {
+    ind.classList.add('critical');
+    txt.textContent = 'CRITICAL ARRHYTHMIA';
+    icon.textContent = '✖';
+    alert.classList.add('show', 'alert-critical');
+    document.getElementById('alertIcon').textContent = '🚨';
+    document.getElementById('alertText').textContent =
+      `CRITICAL ALERT: BPM ${bpm} — Immediate medical attention required!`;
+  } else if (bpm < 60 || bpm > 100) {
+    ind.classList.add('warning');
+    txt.textContent = bpm < 60 ? 'BRADYCARDIA WARNING' : 'TACHYCARDIA WARNING';
+    icon.textContent = '⚠';
+    alert.classList.add('show', 'alert-warning');
+    document.getElementById('alertIcon').textContent = '⚠️';
+    document.getElementById('alertText').textContent =
+      `WARNING: BPM ${bpm} is outside normal range (60-100)`;
+  } else {
+    ind.classList.add('normal');
+    txt.textContent = 'NORMAL SINUS RHYTHM';
+    icon.textContent = '✦';
+  }
+
+  // Update live dot
+  const dot = document.getElementById('liveDot');
+  dot.style.background = bpm < 40 || bpm > 150 ? 'var(--red)' :
+                          bpm < 60 || bpm > 100 ? 'var(--amber)' : 'var(--green)';
+  dot.style.boxShadow = `0 0 8px ${bpm < 40 || bpm > 150 ? 'var(--red)' :
+                          bpm < 60 || bpm > 100 ? 'var(--amber)' : 'var(--green)'}`;
+}
+
+function drawTrend() {
+  const W = trendCanvas.width, H = trendCanvas.height;
+  trendCtx.clearRect(0, 0, W, H);
+  if (bpmHistory.length < 2) return;
+
+  const min = Math.min(...bpmHistory) - 5;
+  const max = Math.max(...bpmHistory) + 5;
+  const range = max - min || 1;
+
+  const color = getWaveColor(currentBpm);
+  trendCtx.beginPath();
+  trendCtx.strokeStyle = color;
+  trendCtx.lineWidth = 1.5;
+  trendCtx.shadowBlur = 6;
+  trendCtx.shadowColor = color;
+
+  bpmHistory.forEach((v, i) => {
+    const x = (i / (bpmHistory.length - 1)) * W;
+    const y = H - ((v - min) / range) * (H - 4) - 2;
+    i === 0 ? trendCtx.moveTo(x, y) : trendCtx.lineTo(x, y);
+  });
+  trendCtx.stroke();
+  trendCtx.shadowBlur = 0;
+}
+
+// ─── CONTROLS ────────────────────────────────────────────────
+function startMonitor() {
+  if (running) return;
+  running = true;
+  lastTime = performance.now();
+  document.getElementById('liveLabel').textContent = 'MONITORING';
+  ecgAnimId = requestAnimationFrame(drawECG);
+  vitalsIntervalId = setInterval(updateVitals, 500);
+  updateVitals();
+}
+
+function stopMonitor() {
+  running = false;
+  document.getElementById('liveLabel').textContent = 'PAUSED';
+  document.getElementById('liveDot').style.background = 'var(--amber)';
+  document.getElementById('liveDot').style.boxShadow = '0 0 8px var(--amber)';
+  if (vitalsIntervalId) clearInterval(vitalsIntervalId);
+  // Clear alert
+  document.getElementById('alertBanner').className = 'alert-banner';
+  document.getElementById('statusIndicator').className = 'status-indicator normal';
+  document.getElementById('statusText').textContent = 'MONITORING PAUSED';
+  document.getElementById('statusIcon').textContent = '⏸';
+}
+
+function resetMonitor() {
+  stopMonitor();
+  currentBpm = 72;
+  targetBpm = 72;
+  bpmHistory = [];
+  minBpm = Infinity; maxBpm = -Infinity;
+  document.getElementById('bpmDisplay').textContent = '72';
+  document.getElementById('bpmSlider').value = 72;
+  document.getElementById('sliderVal').textContent = '72';
+  document.getElementById('minBpm').textContent = '--';
+  document.getElementById('maxBpm').textContent = '--';
+  waveBuffer = new Array(ecgCanvas.width).fill(0.5);
+  ecgCtx.clearRect(0, 0, ecgCanvas.width, ecgCanvas.height);
+  trendCtx.clearRect(0, 0, trendCanvas.width, trendCanvas.height);
+  document.getElementById('liveLabel').textContent = 'READY';
+}
+
+function onSliderChange(val) {
+  targetBpm = parseInt(val);
+  document.getElementById('sliderVal').textContent = val;
+}
+
+// ─── IDLE DRAW (flat line when stopped) ──────────────────────
+function drawIdleLine() {
+  const W = ecgCanvas.width, H = ecgCanvas.height;
+  ecgCtx.clearRect(0, 0, W, H);
+  ecgCtx.beginPath();
+  ecgCtx.strokeStyle = 'rgba(0,245,255,0.3)';
+  ecgCtx.lineWidth = 1.5;
+  ecgCtx.moveTo(0, H/2);
+  ecgCtx.lineTo(W, H/2);
+  ecgCtx.stroke();
+  if (!running) requestAnimationFrame(drawIdleLine);
+}
+requestAnimationFrame(drawIdleLine);
+
+// ─── AUTO START ───────────────────────────────────────────────
+setTimeout(() => startMonitor(), 300);
+</script>
+</body>
+</html>
